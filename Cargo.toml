@@ -1,0 +1,13 @@
+[package]
+name = "burn-contracts"
+edition = "2021"
+version = "0.1.0"
+
+[dependencies]
+burn = { version = "~0.16.0", features = [] }
+
+[dev-dependencies]
+burn = { version = "~0.16.0", features = ["ndarray"] }
+
+[features]
+testing = []
