@@ -1,7 +1,11 @@
 [package]
 name = "burn-contracts"
-edition = "2021"
 version = "0.1.0"
+keywords = ["burn", "tensor", "contracts", "testing"]
+categories = ["development-tools::testing"]
+edition = "2021"
+repository = "https://github.com/crutcher/burn-contracts"
+license = "MIT"
 
 [dependencies]
 burn = { version = "~0.16.0", features = [] }
