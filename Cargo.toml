@@ -7,6 +7,11 @@ edition = "2021"
 repository = "https://github.com/crutcher/burn-contracts"
 license = "MIT"
 description = "Fluent Contracts for the Burn library"
+exclude = [
+    ".github/*",
+    ".gitignore",
+    "*.sh",
+]
 
 [dependencies]
 burn = { version = "~0.16.0", features = [] }
