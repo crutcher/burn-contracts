@@ -4,6 +4,8 @@ pub mod testing;
 use burn::prelude::{Backend, Float};
 use burn::tensor::{BasicOps, Tensor};
 
+/// A wrapper around a Tensor that provides additional assertions.
+#[derive(Clone, Debug)]
 pub struct TensorWrapper<'a, B, const D: usize, K = Float>
 where
     B: Backend,
@@ -117,7 +119,6 @@ where
         panic!("Expected dims [{expected}], found [{actual}]")
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
