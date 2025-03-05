@@ -28,6 +28,14 @@ where
 {
     /// Assert that the wrapped tensor has the expected dimensions.
     ///
+    /// ## Parameters
+    ///
+    /// - `dims`: The expected dimensions of the tensor.
+    ///
+    /// ## Panics
+    ///
+    /// Panics if the tensor does not have the expected dimensions.
+    ///
     /// ## Example:
     /// ```
     /// use burn::backend::NdArray;
@@ -39,6 +47,7 @@ where
     ///
     /// assert_tensor(&tensor).has_dims([2, 2]);
     /// ```
+    #[allow(clippy::must_use_candidate)]
     pub fn has_dims(
         &self,
         dims: [usize; D],
@@ -56,6 +65,14 @@ where
 
     /// Assert that the wrapped tensor has the expected named dimensions.
     ///
+    /// ## Parameters
+    ///
+    /// - `dims`: The expected named dimensions of the tensor.
+    ///
+    /// ## Panics
+    ///
+    /// Panics if the tensor does not have the expected named dimensions.
+    ///
     /// ## Example:
     /// ```
     /// use burn::backend::NdArray;
@@ -67,6 +84,7 @@ where
     ///
     /// assert_tensor(&tensor).has_named_dims([("rows", 2), ("cols", 2)]);
     /// ```
+    #[allow(clippy::must_use_candidate)]
     pub fn has_named_dims(
         &self,
         dims: [(&str, usize); D],

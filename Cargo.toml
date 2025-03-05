@@ -6,6 +6,7 @@ categories = ["development-tools::testing"]
 edition = "2021"
 repository = "https://github.com/crutcher/burn-contracts"
 license = "MIT"
+description = "Fluent Contracts for the Burn library"
 
 [dependencies]
 burn = { version = "~0.16.0", features = [] }
@@ -15,3 +16,12 @@ burn = { version = "~0.16.0", features = ["ndarray"] }
 
 [features]
 testing = []
+
+[lints.clippy]
+all = "deny"
+pedantic = "deny"
+suspicious = "deny"
+cargo = "deny"
+
+# upstream bug in burn release?
+multiple_crate_versions = { level = "allow", priority = 1 }

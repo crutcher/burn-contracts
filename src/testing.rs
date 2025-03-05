@@ -11,11 +11,20 @@ where
     B: Backend,
     K: BasicOps<B>,
 {
+    /// Assert that the wrapped tensor has the expected value.
+    ///
+    /// ## Parameters
+    ///
+    /// - `expected`: The expected tensor.
+    ///
+    /// ## Panics
+    ///
+    /// Panics if the tensor does not have the expected value.
     pub fn equals(
         &self,
         expected: &Tensor<B, D, K>,
     ) -> &Self {
-        self.has_dims(expected.dims());
+        let _ = self.has_dims(expected.dims());
 
         assert_eq!(
             self.inner.to_data(),
@@ -39,7 +48,15 @@ where
 {
     /// Assert that the wrapped tensor is close to the expected tensor.
     ///
-    /// The `atol` and `rtol` parameters are optional and default to `DEFAULT_ATOL` and `DEFAULT_RTOL` respectively.
+    /// ## Parameters
+    ///
+    /// - `expected`: The expected tensor.
+    /// - `atol`: The absolute tolerance, which defaults to `DEFAULT_ATOL`.
+    /// - `rtol`: The relative tolerance, which defaults to `DEFAULT_RTOL`.
+    ///
+    /// ## Panics
+    ///
+    /// Panics if the tensor is not close to the expected tensor.
     pub fn is_close(
         &self,
         expected: &Tensor<B, D, K>,
@@ -67,12 +84,12 @@ where
         let count = data.iter::<bool>().filter(|x| *x).count();
 
         if count != num_elements {
+            #[allow(clippy::cast_precision_loss)]
             let percentage = (count as f64 / num_elements as f64) * 100.0;
 
             panic!(
-                "Expected tensor to be within (atol={:?}, rtol={:?}) of target\n\
-                 - {}/{} ({:.2}%) elements passed",
-                atol, rtol, count, num_elements, percentage,
+                "Expected tensor to be within (atol={atol:?}, rtol={rtol:?}) of target\n\
+                 - {count}/{num_elements} ({percentage:.2}%) elements passed",
             );
         }
 
