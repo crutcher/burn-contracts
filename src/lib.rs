@@ -2,6 +2,7 @@ pub mod shapes;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
+use crate::shapes::exp::{ShapeMatchError, ShapePattern};
 use burn::prelude::{Backend, Float};
 use burn::tensor::{BasicOps, Tensor};
 
@@ -66,6 +67,21 @@ where
         self
     }
 
+    pub fn unpacks_shape<const S: usize>(
+        &self,
+        keys: [&str; S],
+        pattern: &str,
+        bindings: &[(&str, usize)],
+    ) -> Result<[usize; S], ShapeMatchError> {
+        let pattern = ShapePattern::cached_parse(pattern)
+            .map_err(|e| ShapeMatchError::Todo(e.to_string()))?;
+
+        let vals = pattern
+            .match_bindings(&self.inner.dims(), bindings)?
+            .select(keys);
+        Ok(vals)
+    }
+
     /// Assert that the wrapped tensor has the expected named dimensions.
     ///
     /// ## Parameters
@@ -126,6 +142,30 @@ mod tests {
     use burn::backend::NdArray;
     use burn::prelude::Backend;
     use burn::tensor::Tensor;
+    use std::error::Error;
+
+    #[test]
+    fn test_unpacks_shape() {
+        impl_test_unpacks_shape::<NdArray>().unwrap();
+    }
+
+    #[allow(clippy::many_single_char_names)]
+    fn impl_test_unpacks_shape<B: Backend>() -> Result<(), Box<dyn Error>> {
+        let device = Default::default();
+        let tensor = Tensor::<B, 6>::zeros([2, 2, 2, 5 * 4, 4 * 4, 3], &device);
+
+        let [b, h, w] = assert_tensor(&tensor).unpacks_shape(
+            ["b", "h", "w"],
+            "b ... (h p) (w p) c",
+            &[("p", 4), ("c", 3)],
+        )?;
+
+        assert_eq!(b, 2);
+        assert_eq!(h, 5);
+        assert_eq!(w, 4);
+
+        Ok(())
+    }
 
     #[test]
     fn test_has_dims_passing() {

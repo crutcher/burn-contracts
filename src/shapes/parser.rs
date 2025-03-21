@@ -1,4 +1,4 @@
-use crate::shapes::exp::{DimPattern, ShapeEx, ShapeExError};
+use crate::shapes::exp::{PatternComponent, ShapePattern, ShapePatternError};
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, alphanumeric1, multispace0, multispace1};
@@ -7,6 +7,29 @@ use nom::multi::{many0, many1, separated_list1};
 use nom::sequence::{delimited, pair, preceded, terminated};
 use nom::IResult;
 use nom::Parser;
+
+use once_cell::sync::Lazy;
+
+use quick_cache::sync::Cache;
+
+const PARSE_CACHE: Lazy<Cache<String, ShapePattern>> = Lazy::new(|| Cache::new(1000));
+
+/// Parse a `ShapePattern` and cache the result.
+///
+/// This function is thread-safe; and uses a process-wide cache,
+/// so expressions should be parsed-once and shared.
+///
+/// ## Parameters
+///
+/// - `input`: A string representation of the `ShapePattern`
+///
+/// ## Errors
+///
+/// Returns an error if the input string cannot be parsed;
+/// or the pattern is invalid.
+pub fn cached_parse_shape_pattern(input: &str) -> Result<ShapePattern, ShapePatternError> {
+    PARSE_CACHE.get_or_insert_with(input, || parse_shape_pattern(input))
+}
 
 /// Parse a `ShapePattern`.
 ///
@@ -18,18 +41,18 @@ use nom::Parser;
 ///
 /// Returns an error if the input string cannot be parsed;
 /// or the pattern is invalid.
-pub fn parse_shape_pattern(input: &str) -> Result<ShapeEx, ShapeExError> {
+pub fn parse_shape_pattern(input: &str) -> Result<ShapePattern, ShapePatternError> {
     match components_parser(input.trim()) {
         Ok((remaining, components)) => {
             if remaining.is_empty() {
-                Ok(ShapeEx::new(components)?)
+                Ok(ShapePattern::new(components)?)
             } else {
-                Err(ShapeExError::ParseError {
+                Err(ShapePatternError::ParseError {
                     input: input.to_string(),
                 })
             }
         }
-        Err(_) => Err(ShapeExError::ParseError {
+        Err(_) => Err(ShapePatternError::ParseError {
             input: input.to_string(),
         }),
     }
@@ -48,30 +71,30 @@ fn ident_parser(input: &str) -> IResult<&str, String> {
 }
 
 /// Parse an ellipsis: r"..." -> Ellipsis
-fn ellipsis_parser(input: &str) -> IResult<&str, DimPattern> {
-    map(tag("..."), |_| DimPattern::Ellipsis).parse(input)
+fn ellipsis_parser(input: &str) -> IResult<&str, PatternComponent> {
+    map(tag("..."), |_| PatternComponent::Ellipsis).parse(input)
 }
 
 /// Parse a dimension: identifier -> Dim
-fn dim_parser(input: &str) -> IResult<&str, DimPattern> {
-    map(ident_parser, DimPattern::Dim).parse(input)
+fn dim_parser(input: &str) -> IResult<&str, PatternComponent> {
+    map(ident_parser, PatternComponent::Dim).parse(input)
 }
 
 /// Parse a composite dimension: (id1 id2 ...) -> Composite
-fn composite_parser(input: &str) -> IResult<&str, DimPattern> {
+fn composite_parser(input: &str) -> IResult<&str, PatternComponent> {
     map(
         delimited(
             terminated(tag("("), multispace0),
             separated_list1(multispace1, ident_parser),
             preceded(multispace0, tag(")")),
         ),
-        DimPattern::Composite,
+        PatternComponent::Composite,
     )
     .parse(input)
 }
 
 /// Parse a list of components separated by whitespace
-fn components_parser(input: &str) -> IResult<&str, Vec<DimPattern>> {
+fn components_parser(input: &str) -> IResult<&str, Vec<PatternComponent>> {
     many1(terminated(
         alt((ellipsis_parser, dim_parser, composite_parser)),
         multispace0,
@@ -85,9 +108,15 @@ mod tests {
 
     #[test]
     fn test_ellipsis() {
-        assert_eq!(ellipsis_parser("..."), Ok(("", DimPattern::Ellipsis)));
-        assert_eq!(ellipsis_parser("... "), Ok((" ", DimPattern::Ellipsis)));
-        assert_eq!(ellipsis_parser("...x"), Ok(("x", DimPattern::Ellipsis)));
+        assert_eq!(ellipsis_parser("..."), Ok(("", PatternComponent::Ellipsis)));
+        assert_eq!(
+            ellipsis_parser("... "),
+            Ok((" ", PatternComponent::Ellipsis))
+        );
+        assert_eq!(
+            ellipsis_parser("...x"),
+            Ok(("x", PatternComponent::Ellipsis))
+        );
     }
 
     #[test]
@@ -109,7 +138,7 @@ mod tests {
             let input = format!("{id} z");
             assert_eq!(
                 dim_parser(&input),
-                Ok((" z", DimPattern::Dim((*id).to_string())))
+                Ok((" z", PatternComponent::Dim((*id).to_string())))
             );
         }
     }
@@ -118,13 +147,13 @@ mod tests {
     fn test_composite() {
         assert_eq!(
             composite_parser("(x)"),
-            Ok(("", DimPattern::Composite(vec!["x".to_string()])))
+            Ok(("", PatternComponent::Composite(vec!["x".to_string()])))
         );
         assert_eq!(
             composite_parser("(x y)"),
             Ok((
                 "",
-                DimPattern::Composite(vec!["x".to_string(), "y".to_string()])
+                PatternComponent::Composite(vec!["x".to_string(), "y".to_string()])
             ))
         );
     }
@@ -133,19 +162,19 @@ mod tests {
     fn test_parse_shape_pattern() {
         assert_eq!(
             parse_shape_pattern("..."),
-            ShapeEx::new(vec![DimPattern::Ellipsis])
+            ShapePattern::new(vec![PatternComponent::Ellipsis])
         );
         assert_eq!(
             parse_shape_pattern("x"),
-            ShapeEx::new(vec![DimPattern::Dim("x".to_string())])
+            ShapePattern::new(vec![PatternComponent::Dim("x".to_string())])
         );
         assert_eq!(
             parse_shape_pattern("b ...( x  y ) c"),
-            ShapeEx::new(vec![
-                DimPattern::Dim("b".to_string()),
-                DimPattern::Ellipsis,
-                DimPattern::Composite(vec!["x".to_string(), "y".to_string()]),
-                DimPattern::Dim("c".to_string())
+            ShapePattern::new(vec![
+                PatternComponent::Dim("b".to_string()),
+                PatternComponent::Ellipsis,
+                PatternComponent::Composite(vec!["x".to_string(), "y".to_string()]),
+                PatternComponent::Dim("c".to_string())
             ])
         );
     }
