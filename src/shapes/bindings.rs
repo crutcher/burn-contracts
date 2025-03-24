@@ -29,6 +29,7 @@ pub trait ShapeBindingSource {
     /// Returns an iterator over the shape bindings.
     ///
     /// The iterator yields a tuple of the shape binding name and its index.
+    #[must_use]
     fn for_each_shape_binding(&self) -> Self::Iter<'_>;
 
     /// Looks up the value of a shape binding by name.
@@ -53,6 +54,8 @@ where
     where
         Self: 'a;
 
+    #[inline]
+
     fn for_each_shape_binding(&self) -> Self::Iter<'_> {
         self.iter().map(|(k, v)| (k.as_ref(), *v))
     }
@@ -67,6 +70,7 @@ where
     where
         Self: 'a;
 
+    #[inline]
     fn for_each_shape_binding(&self) -> Self::Iter<'_> {
         self.iter().map(|(k, v)| (k.as_ref(), *v))
     }
@@ -81,6 +85,7 @@ where
     where
         Self: 'a;
 
+    #[inline]
     fn for_each_shape_binding(&self) -> Self::Iter<'_> {
         self.iter().map(|(k, v)| (k.as_ref(), *v))
     }
@@ -95,6 +100,7 @@ impl<S: ::std::hash::BuildHasher> ShapeBindingSource for &HashMap<String, usize,
     where
         Self: 'a;
 
+    #[inline]
     fn for_each_shape_binding(&self) -> Self::Iter<'_> {
         self.iter().map(|(k, v)| (k.as_ref(), *v))
     }

@@ -279,30 +279,13 @@ impl ShapePattern {
         shape: &[usize],
         bindings: B,
     ) -> Result<ShapeMatch, ShapeMatchError> {
-        let map = collect_binding_map(bindings);
-        self.match_binding_map(shape, &map)
-    }
+        // FIXME: Reconsider result contents.
+        // - We can skip returning the source shape.
+        // - returned bindings should be an assoc vec OR fixed array?
+        //   - alloc size vs speed considerations
+        // - return ellipsis dims, locations; both?
+        // - multi-pass to resolve composite bindings?
 
-    /// Assert that the `ShapeEx` matches a given shape.
-    ///
-    /// ## Parameters
-    ///
-    /// - `shape`: The shape to match against.
-    /// - `bindings`: The bindings to use for matching.
-    ///
-    /// ## Errors
-    ///
-    /// Returns an error if the shape does not match the pattern.
-    ///
-    /// ## Returns
-    ///
-    /// Returns a `ShapeMatch` if the shape matches the pattern.
-    #[allow(clippy::missing_panics_doc)]
-    pub fn match_binding_map<B: ShapeBindingSource>(
-        &self,
-        shape: &[usize],
-        bindings: B,
-    ) -> Result<ShapeMatch, ShapeMatchError> {
         let dims = shape.len();
         let ellipsis_pos = self.ellipsis_pos();
         let non_e_comps = match ellipsis_pos {
@@ -543,7 +526,7 @@ mod test {
         bindings.insert("extra".to_string(), extra);
 
         let m = ShapePattern::cached_parse("b ... (h p) (w p) c")?
-            .match_binding_map(shape.as_ref(), &bindings)?;
+            .match_bindings(shape.as_ref(), &bindings)?;
 
         assert_eq!(m.shape, shape);
         assert_eq!(m.ellipsis_range, Some(1..3));
