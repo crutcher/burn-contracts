@@ -1,4 +1,4 @@
-use crate::shapes::bindings::{collect_binding_map, ShapeBindingSource};
+use crate::shapes::bindings::{collect_binding_map, lookup_binding, ShapeBindingSource};
 use crate::shapes::parser::{cached_parse_shape_pattern, parse_shape_pattern};
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -10,11 +10,6 @@ pub struct ShapePattern {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ShapePatternBuilder {
-    inner: ShapePattern,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PatternComponent {
     Dim(String),
     Ellipsis,
@@ -23,11 +18,19 @@ pub enum PatternComponent {
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq, Hash)]
 pub enum ShapePatternError {
-    #[error("Parse error:: \"{input}\"")]
-    ParseError { input: String },
+    #[error("Parse error for \"{pattern}\"")]
+    ParseError { pattern: String },
 
-    #[error("Invalid pattern, {error}:: \"{input}\"")]
-    InvalidPattern { input: String, error: String },
+    #[error("Invalid pattern \"{pattern}\": {message}")]
+    InvalidPattern { pattern: String, message: String },
+
+    #[error("Shape \"{shape:?}\" !~= \"{pattern}\" with {bindings:?}: {message}")]
+    MatchError {
+        shape: Vec<usize>,
+        pattern: String,
+        bindings: Vec<(String, usize)>,
+        message: String,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -35,12 +38,6 @@ pub struct ShapeMatch {
     pub shape: Vec<usize>,
     pub bindings: HashMap<String, usize>,
     pub ellipsis_range: Option<std::ops::Range<usize>>,
-}
-
-#[derive(thiserror::Error, Debug, PartialEq, Eq, Hash)]
-pub enum ShapeMatchError {
-    #[error("TODO")]
-    Todo(String),
 }
 
 impl ShapeMatch {
@@ -64,7 +61,7 @@ impl ShapeMatch {
     ) -> [usize; D] {
         let mut result = [0; D];
         for (i, key) in keys.iter().enumerate() {
-            result[i] = *self.bindings.get(*key).unwrap();
+            result[i] = lookup_binding(&self.bindings, key).unwrap();
         }
         result
     }
@@ -107,11 +104,11 @@ fn check_ellipsis_pos(components: &[PatternComponent]) -> Result<Option<usize>, 
         if let PatternComponent::Ellipsis = component {
             if ellipsis_pos.is_some() {
                 return Err(ShapePatternError::InvalidPattern {
-                    input: components
+                    pattern: components
                         .iter()
                         .map(std::string::ToString::to_string)
                         .collect(),
-                    error: "Only one ellipsis is allowed".to_string(),
+                    message: "Only one ellipsis is allowed".to_string(),
                 });
             }
             ellipsis_pos = Some(i);
@@ -135,80 +132,6 @@ impl ShapePattern {
             ellipsis_pos: check_ellipsis_pos(components.as_slice())?,
             components,
         })
-    }
-
-    /// Create a new empty `ShapePattern`.
-    #[must_use]
-    pub fn empty() -> Self {
-        Self {
-            ellipsis_pos: None,
-            components: Vec::new(),
-        }
-    }
-
-    /// Create a new `ShapePattern` extending this pattern by adding a named dimension.
-    ///
-    /// ## Parameters
-    ///
-    /// - `id`: The name of the dimension to add.
-    ///
-    /// ## Returns
-    ///
-    /// Returns a new `ShapePattern` with the added dimension.
-    #[must_use]
-    pub fn with_dim(
-        &self,
-        id: &str,
-    ) -> Self {
-        let mut components = self.components.clone();
-        components.push(PatternComponent::Dim(id.to_string()));
-        Self {
-            ellipsis_pos: check_ellipsis_pos(components.as_slice()).unwrap(),
-            components,
-        }
-    }
-
-    /// Create a new `ShapePattern` extending this pattern by adding an ellipsis.
-    ///
-    /// ## Returns
-    ///
-    /// Returns a new `ShapePattern` with the added ellipsis.
-    ///
-    /// ## Errors
-    ///
-    /// Returns an error if there are too many ellipses.
-    #[must_use]
-    pub fn with_ellipsis(&self) -> Self {
-        let mut components = self.components.clone();
-        components.push(PatternComponent::Ellipsis);
-        Self {
-            ellipsis_pos: check_ellipsis_pos(components.as_slice()).unwrap(),
-            components,
-        }
-    }
-
-    /// Create a new `ShapePattern` extending this pattern by adding a composite dimension.
-    ///
-    /// ## Parameters
-    ///
-    /// - `ids`: The names of the dimensions to add.
-    ///
-    /// ## Returns
-    ///
-    /// Returns a new `ShapePattern` with the added composite dimension.
-    #[must_use]
-    pub fn with_composite(
-        &self,
-        ids: &[&str],
-    ) -> Self {
-        let mut components = self.components.clone();
-        components.push(PatternComponent::Composite(
-            ids.iter().map(|id| (*id).to_string()).collect(),
-        ));
-        Self {
-            ellipsis_pos: check_ellipsis_pos(components.as_slice()).unwrap(),
-            components,
-        }
     }
 
     /// Parse a `ShapePattern` from a string
@@ -278,13 +201,15 @@ impl ShapePattern {
         &self,
         shape: &[usize],
         bindings: B,
-    ) -> Result<ShapeMatch, ShapeMatchError> {
+    ) -> Result<ShapeMatch, ShapePatternError> {
         // FIXME: Reconsider result contents.
         // - We can skip returning the source shape.
         // - returned bindings should be an assoc vec OR fixed array?
         //   - alloc size vs speed considerations
         // - return ellipsis dims, locations; both?
         // - multi-pass to resolve composite bindings?
+
+        let bindings: HashMap<String, usize> = collect_binding_map(bindings);
 
         let dims = shape.len();
         let ellipsis_pos = self.ellipsis_pos();
@@ -293,11 +218,15 @@ impl ShapePattern {
             None => self.components.len(),
         };
         if non_e_comps > dims {
-            return Err(ShapeMatchError::Todo("Not Enough Dims".to_string()));
+            return Err(ShapePatternError::MatchError {
+                shape: shape.to_vec(),
+                pattern: self.to_string(),
+                bindings: bindings.iter().map(|(k, v)| (k.clone(), *v)).collect(),
+                message: "Too few dimensions".to_string(),
+            });
         }
         let ellipsis_range = ellipsis_pos.map(|pos| pos..pos + dims - non_e_comps);
 
-        let bindings: HashMap<String, usize> = collect_binding_map(bindings);
         let mut export = HashMap::new();
 
         fn readthrough_lookup(
@@ -328,7 +257,19 @@ impl ShapePattern {
                     match readthrough_lookup(&bindings, &mut export, id) {
                         Some(bound_value) => {
                             if bound_value != dim_shape {
-                                return Err(ShapeMatchError::Todo("Mismatch".to_string()));
+                                let message = format!(
+                                    "Constraint Mismatch @{id}: {bound_value} != {dim_shape}"
+                                );
+
+                                return Err(ShapePatternError::MatchError {
+                                    shape: shape.to_vec(),
+                                    pattern: self.to_string(),
+                                    bindings: bindings
+                                        .iter()
+                                        .map(|(k, v)| (k.clone(), *v))
+                                        .collect(),
+                                    message,
+                                });
                             }
                         }
                         None => {
@@ -345,14 +286,29 @@ impl ShapePattern {
                             acc *= value;
                         } else {
                             if unbound.is_some() {
-                                return Err(ShapeMatchError::Todo("Multiple Unbound".to_string()));
+                                return Err(ShapePatternError::MatchError {
+                                    shape: shape.to_vec(),
+                                    pattern: self.to_string(),
+                                    bindings: bindings
+                                        .iter()
+                                        .map(|(k, v)| (k.clone(), *v))
+                                        .collect(),
+                                    message: "Multiple unbound factors in composite".to_string(),
+                                });
                             }
                             unbound = Some(factor.clone());
                         }
                     }
                     if let Some(factor) = unbound {
                         if dim_shape % acc != 0 {
-                            return Err(ShapeMatchError::Todo("Mismatch".to_string()));
+                            return Err(ShapePatternError::MatchError {
+                                shape: shape.to_vec(),
+                                pattern: self.to_string(),
+                                bindings: bindings.iter().map(|(k, v)| (k.clone(), *v)).collect(),
+                                message: format!(
+                                    "Composite factor \"{factor}\" * {acc} != shape {dim_shape}",
+                                ),
+                            });
                         }
                         export.insert(factor, dim_shape / acc);
                     }
@@ -366,55 +322,6 @@ impl ShapePattern {
             bindings: export,
             ellipsis_range,
         })
-    }
-
-    #[must_use]
-    pub fn builder() -> ShapePatternBuilder {
-        ShapePatternBuilder::new()
-    }
-}
-
-impl Default for ShapePatternBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl ShapePatternBuilder {
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            inner: ShapePattern::empty(),
-        }
-    }
-
-    #[must_use]
-    pub fn dim(
-        mut self,
-        id: &str,
-    ) -> Self {
-        self.inner = self.inner.with_dim(id);
-        self
-    }
-
-    #[must_use]
-    pub fn ellipsis(mut self) -> Self {
-        self.inner = self.inner.with_ellipsis();
-        self
-    }
-
-    #[must_use]
-    pub fn composite(
-        mut self,
-        ids: &[&str],
-    ) -> Self {
-        self.inner = self.inner.with_composite(ids);
-        self
-    }
-
-    #[must_use]
-    pub fn build(self) -> ShapePattern {
-        self.inner
     }
 }
 
@@ -439,9 +346,8 @@ mod test {
             keys: [&str; D],
             pattern: &str,
             bindings: &[(&str, usize)],
-        ) -> Result<[usize; D], ShapeMatchError> {
-            let pattern = ShapePattern::cached_parse(pattern)
-                .map_err(|e| ShapeMatchError::Todo(e.to_string()))?;
+        ) -> Result<[usize; D], ShapePatternError> {
+            let pattern = ShapePattern::cached_parse(pattern)?;
 
             let vals = pattern.match_bindings(&self.shape, bindings)?.select(keys);
             Ok(vals)
@@ -473,29 +379,6 @@ mod test {
         let shape = [2, 9, 9, 20 * 4, 10 * 4, 3];
 
         let [b, h, w, c] = ShapePattern::cached_parse("b ... (h p) (w p) c")?
-            .match_bindings(&shape, &[("b", 2), ("p", 4)])?
-            .select(["b", "h", "w", "c"]);
-
-        assert_eq!(b, 2);
-        assert_eq!(h, 20);
-        assert_eq!(w, 10);
-        assert_eq!(c, 3);
-
-        Ok(())
-    }
-
-    #[test]
-    #[allow(clippy::many_single_char_names)]
-    fn test_builder_example() -> Result<(), Box<dyn Error>> {
-        let shape = [2, 9, 9, 20 * 4, 10 * 4, 3];
-
-        let [b, h, w, c] = ShapePattern::builder()
-            .dim("b")
-            .ellipsis()
-            .composite(&["h", "p"])
-            .composite(&["w", "p"])
-            .dim("c")
-            .build()
             .match_bindings(&shape, &[("b", 2), ("p", 4)])?
             .select(["b", "h", "w", "c"]);
 

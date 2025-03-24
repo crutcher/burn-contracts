@@ -51,12 +51,12 @@ pub fn parse_shape_pattern(input: &str) -> Result<ShapePattern, ShapePatternErro
                 Ok(ShapePattern::new(components)?)
             } else {
                 Err(ShapePatternError::ParseError {
-                    input: input.to_string(),
+                    pattern: input.to_string(),
                 })
             }
         }
         Err(_) => Err(ShapePatternError::ParseError {
-            input: input.to_string(),
+            pattern: input.to_string(),
         }),
     }
 }

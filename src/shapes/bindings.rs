@@ -4,6 +4,12 @@ use std::slice;
 
 /// A trait for types that can be used as a read-only source of shape binding references.
 ///
+/// FIXME(crutcher): Fix reference traits.
+/// I have real problems with the need for parameters to be of type `T` and not `&T`.
+/// I'm new to rust, and this took a long time; and I need to revisit this when I understand
+/// more about references and lifetimes. The goal is that the iterator view shouldn't
+/// copy the string sources, but that requires lifetime annotation that I don't know
+/// how to do properly yet on non-reference types. Maybe something more with `Self: 'a`?
 ///
 /// ## Example
 ///
@@ -54,8 +60,6 @@ where
     where
         Self: 'a;
 
-    #[inline]
-
     fn for_each_shape_binding(&self) -> Self::Iter<'_> {
         self.iter().map(|(k, v)| (k.as_ref(), *v))
     }
@@ -70,7 +74,6 @@ where
     where
         Self: 'a;
 
-    #[inline]
     fn for_each_shape_binding(&self) -> Self::Iter<'_> {
         self.iter().map(|(k, v)| (k.as_ref(), *v))
     }
@@ -85,7 +88,6 @@ where
     where
         Self: 'a;
 
-    #[inline]
     fn for_each_shape_binding(&self) -> Self::Iter<'_> {
         self.iter().map(|(k, v)| (k.as_ref(), *v))
     }
@@ -100,7 +102,6 @@ impl<S: ::std::hash::BuildHasher> ShapeBindingSource for &HashMap<String, usize,
     where
         Self: 'a;
 
-    #[inline]
     fn for_each_shape_binding(&self) -> Self::Iter<'_> {
         self.iter().map(|(k, v)| (k.as_ref(), *v))
     }
