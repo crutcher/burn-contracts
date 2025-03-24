@@ -1,3 +1,4 @@
+use crate::shapes::bindings::{collect_binding_map, ShapeBindingSource};
 use crate::shapes::parser::{cached_parse_shape_pattern, parse_shape_pattern};
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -273,17 +274,13 @@ impl ShapePattern {
     ///
     /// Returns a `ShapeMatch` if the shape matches the pattern.
     #[allow(clippy::missing_panics_doc)]
-    pub fn match_bindings(
+    pub fn match_bindings<B: ShapeBindingSource>(
         &self,
         shape: &[usize],
-        bindings: &[(&str, usize)],
+        bindings: B,
     ) -> Result<ShapeMatch, ShapeMatchError> {
-        let bindings = bindings
-            .iter()
-            .map(|(id, value)| ((*id).to_string().clone(), *value))
-            .collect::<HashMap<_, _>>();
-
-        self.match_binding_map(shape, &bindings)
+        let map = collect_binding_map(bindings);
+        self.match_binding_map(shape, &map)
     }
 
     /// Assert that the `ShapeEx` matches a given shape.
@@ -301,10 +298,10 @@ impl ShapePattern {
     ///
     /// Returns a `ShapeMatch` if the shape matches the pattern.
     #[allow(clippy::missing_panics_doc)]
-    pub fn match_binding_map(
+    pub fn match_binding_map<B: ShapeBindingSource>(
         &self,
         shape: &[usize],
-        bindings: &HashMap<String, usize>,
+        bindings: B,
     ) -> Result<ShapeMatch, ShapeMatchError> {
         let dims = shape.len();
         let ellipsis_pos = self.ellipsis_pos();
@@ -317,7 +314,8 @@ impl ShapePattern {
         }
         let ellipsis_range = ellipsis_pos.map(|pos| pos..pos + dims - non_e_comps);
 
-        let mut export = bindings.clone();
+        let bindings: HashMap<String, usize> = collect_binding_map(bindings);
+        let mut export = HashMap::new();
 
         fn readthrough_lookup(
             bindings: &HashMap<String, usize>,
@@ -344,7 +342,7 @@ impl ShapePattern {
                     i = ellipsis_range.clone().unwrap().end;
                 }
                 PatternComponent::Dim(id) => {
-                    match readthrough_lookup(bindings, &mut export, id) {
+                    match readthrough_lookup(&bindings, &mut export, id) {
                         Some(bound_value) => {
                             if bound_value != dim_shape {
                                 return Err(ShapeMatchError::Todo("Mismatch".to_string()));
@@ -360,7 +358,7 @@ impl ShapePattern {
                     let mut acc = 1;
                     let mut unbound: Option<String> = None;
                     for factor in ids {
-                        if let Some(value) = readthrough_lookup(bindings, &mut export, factor) {
+                        if let Some(value) = readthrough_lookup(&bindings, &mut export, factor) {
                             acc *= value;
                         } else {
                             if unbound.is_some() {
@@ -554,7 +552,6 @@ mod test {
         assert_eq!(m.bindings["w"], w);
         assert_eq!(m.bindings["p"], p);
         assert_eq!(m.bindings["c"], c);
-        assert_eq!(m.bindings["extra"], extra);
 
         let [sel_b, sel_h, sel_w] = m.select(["b", "h", "w"]);
         assert_eq!(sel_b, b);

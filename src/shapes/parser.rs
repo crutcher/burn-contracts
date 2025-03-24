@@ -12,7 +12,10 @@ use once_cell::sync::Lazy;
 
 use quick_cache::sync::Cache;
 
-const PARSE_CACHE: Lazy<Cache<String, ShapePattern>> = Lazy::new(|| Cache::new(1000));
+fn parse_cache() -> &'static Cache<String, ShapePattern> {
+    static PARSE_CACHE: Lazy<Cache<String, ShapePattern>> = Lazy::new(|| Cache::new(1000));
+    &PARSE_CACHE
+}
 
 /// Parse a `ShapePattern` and cache the result.
 ///
@@ -28,7 +31,7 @@ const PARSE_CACHE: Lazy<Cache<String, ShapePattern>> = Lazy::new(|| Cache::new(1
 /// Returns an error if the input string cannot be parsed;
 /// or the pattern is invalid.
 pub fn cached_parse_shape_pattern(input: &str) -> Result<ShapePattern, ShapePatternError> {
-    PARSE_CACHE.get_or_insert_with(input, || parse_shape_pattern(input))
+    parse_cache().get_or_insert_with(input, || parse_shape_pattern(input))
 }
 
 /// Parse a `ShapePattern`.

@@ -67,11 +67,11 @@ where
         self
     }
 
-    pub fn unpacks_shape<const S: usize>(
+    pub fn unpacks_shape<const S: usize, C: shapes::ShapeBindingSource>(
         &self,
         keys: [&str; S],
         pattern: &str,
-        bindings: &[(&str, usize)],
+        bindings: C,
     ) -> Result<[usize; S], ShapeMatchError> {
         let pattern = ShapePattern::cached_parse(pattern)
             .map_err(|e| ShapeMatchError::Todo(e.to_string()))?;
