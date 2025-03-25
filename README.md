@@ -78,7 +78,7 @@ burn-contracts = { version = $VERSION, features = ["testing"] }
 
 ### 0.2.0
 
-Added
+Added `assert_tensor(&tensor).unpacks_shape(...)` assertion.
 
 ### 0.1.0
 
