@@ -76,6 +76,11 @@ burn-contracts = { version = $VERSION, features = ["testing"] }
 
 ## Change Log
 
+### 0.2.1
+
+- Reduce over-broad burn feature deps.
+- Clean up pattern formatting.
+
 ### 0.2.0
 
 Added `assert_tensor(&tensor).unpacks_shape(...)` assertion.

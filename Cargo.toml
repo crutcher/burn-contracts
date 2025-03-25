@@ -1,6 +1,6 @@
 [package]
 name = "burn-contracts"
-version = "0.2.0"
+version = "0.2.1"
 keywords = ["burn", "tensor", "contracts", "testing"]
 categories = ["development-tools::testing"]
 edition = "2021"
@@ -14,7 +14,7 @@ exclude = [
 ]
 
 [dependencies]
-burn = { version = "~0.16.0", features = ["default", "ndarray"] }
+burn = { version = "~0.16.0", features = [] }
 # See burn=0.16.0/bincode=2.0.0 bug: https://github.com/tracel-ai/burn/issues/2876
 bincode = "=2.0.0-rc.3"
 bincode_derive = "=2.0.0-rc.3"

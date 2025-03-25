@@ -72,8 +72,11 @@ impl Display for ShapePattern {
         &self,
         f: &mut std::fmt::Formatter<'_>,
     ) -> std::fmt::Result {
-        for component in &self.components {
-            write!(f, "{component}")?;
+        for (idx, comp) in self.components.iter().enumerate() {
+            if idx > 0 {
+                write!(f, " ")?;
+            }
+            write!(f, "{comp}")?;
         }
         Ok(())
     }
@@ -89,8 +92,11 @@ impl Display for PatternComponent {
             PatternComponent::Ellipsis => write!(f, "..."),
             PatternComponent::Composite(ids) => {
                 write!(f, "(")?;
-                for id in ids {
-                    write!(f, "{id} ")?;
+                for (idx, id) in ids.iter().enumerate() {
+                    if idx > 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{id}")?;
                 }
                 write!(f, ")")
             }
@@ -330,47 +336,17 @@ mod test {
     use super::*;
     use std::error::Error;
 
-    pub struct ShapeHolder {
-        pub shape: Vec<usize>,
-    }
-
-    impl ShapeHolder {
-        pub fn new(shape: &[usize]) -> Self {
-            Self {
-                shape: shape.to_vec(),
-            }
-        }
-
-        pub fn unpacks_shape<const D: usize>(
-            &self,
-            keys: [&str; D],
-            pattern: &str,
-            bindings: &[(&str, usize)],
-        ) -> Result<[usize; D], ShapePatternError> {
-            let pattern = ShapePattern::cached_parse(pattern)?;
-
-            let vals = pattern.match_bindings(&self.shape, bindings)?.select(keys);
-            Ok(vals)
-        }
-    }
-
     #[test]
-    #[allow(clippy::many_single_char_names)]
-    fn test_fluent_example() -> Result<(), Box<dyn Error>> {
-        let shape = [2, 9, 9, 20 * 4, 10 * 4, 3];
+    fn test_display_pattern() {
+        let pattern = ShapePattern::new(vec![
+            PatternComponent::Dim("b".to_string()),
+            PatternComponent::Ellipsis,
+            PatternComponent::Composite(vec!["h".to_string(), "w".to_string()]),
+            PatternComponent::Dim("c".to_string()),
+        ])
+        .unwrap();
 
-        let [b, h, w, c] = ShapeHolder::new(&shape).unpacks_shape(
-            ["b", "h", "w", "c"],
-            "b ... (h p) (w p) c",
-            &[("b", 2), ("p", 4)],
-        )?;
-
-        assert_eq!(b, 2);
-        assert_eq!(h, 20);
-        assert_eq!(w, 10);
-        assert_eq!(c, 3);
-
-        Ok(())
+        assert_eq!(pattern.to_string(), "b ... (h w) c");
     }
 
     #[test]
