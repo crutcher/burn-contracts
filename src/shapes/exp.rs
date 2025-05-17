@@ -1,4 +1,4 @@
-use crate::shapes::bindings::{collect_binding_map, lookup_binding, ShapeBindingSource};
+use crate::shapes::bindings::{ShapeBindingSource, collect_binding_map, lookup_binding};
 use crate::shapes::parser::{cached_parse_shape_pattern, parse_shape_pattern};
 use std::collections::HashMap;
 use std::fmt::Display;
