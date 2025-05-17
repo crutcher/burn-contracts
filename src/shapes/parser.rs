@@ -1,12 +1,12 @@
 use crate::shapes::exp::{PatternComponent, ShapePattern, ShapePatternError};
+use nom::IResult;
+use nom::Parser;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, alphanumeric1, multispace0, multispace1};
 use nom::combinator::{map, recognize};
 use nom::multi::{many0, many1, separated_list1};
 use nom::sequence::{delimited, pair, preceded, terminated};
-use nom::IResult;
-use nom::Parser;
 
 use once_cell::sync::Lazy;
 

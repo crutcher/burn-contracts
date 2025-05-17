@@ -76,6 +76,10 @@ burn-contracts = { version = $VERSION, features = ["testing"] }
 
 ## Change Log
 
+### 0.3.0
+
+- Bump burn dep to 0.17.0
+
 ### 0.2.1
 
 - Reduce over-broad burn feature deps.
